@@ -6,6 +6,12 @@ export COMFY_DIR="$WORKSPACE/ComfyUI"
 export PY="/venv/main/bin/python"
 export PIP="/venv/main/bin/pip"
 
+# ========================================================
+# КОММЕНТАРИЙ: Вставьте ваш токен Civitai ниже
+# ========================================================
+CIVITAI_TOKEN="66e58af72a977c3270b4f2c5877da4b3"
+# ========================================================
+
 echo "[IntoRealism Workflow] provisioning start"
 
 if [ -f /venv/main/bin/activate ]; then
@@ -79,9 +85,10 @@ mkdir -p \
 
 cd "$COMFY_DIR/models"
 
-# checkpoint
+# checkpoint - ДОБАВЛЕН ЗАГОЛОВОК АВТОРИЗАЦИИ
 wget -nc -P checkpoints \
-https://civitai.com/api/download/models/2472650 \
+--header="Authorization: Bearer $CIVITAI_TOKEN" \
+"https://civitai.com/api/download/models/2472650" \
 -O checkpoints/lustifySDXLNSFW_ggwpV7.safetensors
 
 # VAE
@@ -99,37 +106,33 @@ https://huggingface.co/bingsu/adetailer/resolve/main/Eyeful_v2-Paired.pt
 # ------------------------------------------------
 # LORA DOWNLOAD SECTION
 # ------------------------------------------------
-# ДОБАВЛЯЙ СЮДА ССЫЛКИ НА LORA
-# формат:
-# "url|filename.safetensors"
 
 LORAS=(
-
 "https://example.com/lora1.safetensors|lora1.safetensors"
 "https://huggingface.co/danya712/24121412/resolve/main/0MY12RWXE4VY3KXZAN6H9N2D70.safetensors?download=true|eveline_lora_sdxl.safetensors"
 "https://civitai.com/api/download/models/1627770?type=Model&format=SafeTensor|leaked_nudes.safetensors"
 "https://civitai.com/api/download/models/871108?type=Model&format=SafeTensor|pussy_v5.safetensors"
-
 )
 
 echo "[Downloading LoRAs]"
 
 for item in "${LORAS[@]}"; do
+    URL=$(echo $item | cut -d "|" -f1)
+    NAME=$(echo $item | cut -d "|" -f2)
+    DEST="$COMFY_DIR/models/loras/$NAME"
 
-URL=$(echo $item | cut -d "|" -f1)
-NAME=$(echo $item | cut -d "|" -f2)
-
-DEST="$COMFY_DIR/models/loras/$NAME"
-
-if [ -f "$DEST" ]; then
-echo "[SKIP] $NAME already exists"
-else
-echo "[DL] $NAME"
-wget -q --show-progress "$URL" -O "$DEST"
-fi
-
+    if [ -f "$DEST" ]; then
+        echo "[SKIP] $NAME already exists"
+    else
+        echo "[DL] $NAME"
+        # Для Civitai ссылок добавляем токен в заголовок
+        if [[ $URL == *"civitai.com"* ]]; then
+            wget -q --show-progress --header="Authorization: Bearer $CIVITAI_TOKEN" "$URL" -O "$DEST"
+        else
+            wget -q --show-progress "$URL" -O "$DEST"
+        fi
+    fi
 done
-
 
 pkill -f "ComfyUI/main.py" || true
 sleep 1
