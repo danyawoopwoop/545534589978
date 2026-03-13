@@ -6,11 +6,8 @@ export COMFY_DIR="$WORKSPACE/ComfyUI"
 export PY="/venv/main/bin/python"
 export PIP="/venv/main/bin/pip"
 
-# ========================================================
-# КОММЕНТАРИЙ: Токен Civitai (уже внесен)
-# ========================================================
+# Токен Civitai (оставляем для LoRA, если они из Civitai)
 CIVITAI_TOKEN="66e58af72a977c3270b4f2c5877da4b3"
-# ========================================================
 
 echo "[IntoRealism Workflow] provisioning start"
 
@@ -18,10 +15,8 @@ if [ -f /venv/main/bin/activate ]; then
   . /venv/main/bin/activate
 fi
 
-# Установка системных зависимостей
 apt-get update -y || true
 apt-get install -y git wget curl rsync ca-certificates libgl1-mesa-glx libglib2.0-0 || true
-apt-get clean && rm -rf /var/lib/apt/lists/*
 
 mkdir -p "$WORKSPACE"
 
@@ -40,16 +35,7 @@ fi
 # ------------------------------------------------
 
 "$PIP" install -U pip setuptools wheel
-
-"$PIP" install \
-ultralytics \
-opencv-python \
-onnxruntime \
-segment-anything \
-accelerate \
-matplotlib \
-GitPython
-
+"$PIP" install ultralytics opencv-python onnxruntime segment-anything accelerate matplotlib GitPython
 "$PIP" install -r "$COMFY_DIR/requirements.txt"
 
 # ------------------------------------------------
@@ -57,7 +43,6 @@ GitPython
 # ------------------------------------------------
 
 cd "$COMFY_DIR/custom_nodes"
-
 [ -d "ComfyUI-Manager" ] || git clone https://github.com/Comfy-Org/ComfyUI-Manager.git
 [ -d "ComfyUI-Impact-Pack" ] || git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git
 [ -d "ComfyUI-Impact-Subpack" ] || git clone https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git
@@ -67,12 +52,7 @@ cd "$COMFY_DIR/custom_nodes"
 # Model folders
 # ------------------------------------------------
 
-mkdir -p \
-"$COMFY_DIR/models/checkpoints" \
-"$COMFY_DIR/models/vae" \
-"$COMFY_DIR/models/loras" \
-"$COMFY_DIR/models/sams" \
-"$COMFY_DIR/models/ultralytics/bbox"
+mkdir -p "$COMFY_DIR/models/checkpoints" "$COMFY_DIR/models/vae" "$COMFY_DIR/models/loras" "$COMFY_DIR/models/sams" "$COMFY_DIR/models/ultralytics/bbox"
 
 # ------------------------------------------------
 # Download base models
@@ -80,25 +60,20 @@ mkdir -p \
 
 cd "$COMFY_DIR/models"
 
-# checkpoint - ИСПРАВЛЕНО: Добавлены флаги для устранения ошибки 400
-wget -nc -P checkpoints \
---header="Authorization: Bearer $CIVITAI_TOKEN" \
---auth-no-challenge \
---trust-server-names \
-"https://civitai.com/api/download/models/2472650" \
--O checkpoints/lustifySDXLNSFW_ggwpV7.safetensors
+# ИСПРАВЛЕНО: Загрузка основной модели с Hugging Face
+echo "[DL] Main Checkpoint from Hugging Face"
+wget -nc -L -P checkpoints \
+  "https://huggingface.co/Kutches/XL/resolve/main/lustifySDXLNSFW_ggwpV7.safetensors?download=true" \
+  -O checkpoints/lustifySDXLNSFW_ggwpV7.safetensors
 
 # VAE
-wget -nc -P vae \
-"https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors"
+wget -nc -L -P vae "https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdxl_vae.safetensors"
 
 # SAM
-wget -nc -P sams \
-"https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth"
+wget -nc -P sams "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth"
 
 # Ultralytics detector
-wget -nc -P ultralytics/bbox \
-"https://huggingface.co/bingsu/adetailer/resolve/main/Eyeful_v2-Paired.pt"
+wget -nc -P ultralytics/bbox "https://huggingface.co/bingsu/adetailer/resolve/main/Eyeful_v2-Paired.pt"
 
 # ------------------------------------------------
 # LORA DOWNLOAD SECTION
@@ -122,11 +97,10 @@ for item in "${LORAS[@]}"; do
     else
         echo "[DL] $NAME"
         if [[ $URL == *"civitai.com"* ]]; then
-            # ИСПРАВЛЕНО: Добавлены флаги для LoRA с Civitai
             wget -q --show-progress --header="Authorization: Bearer $CIVITAI_TOKEN" \
-            --auth-no-challenge --trust-server-names "$URL" -O "$DEST"
+              --auth-no-challenge --trust-server-names "$URL" -O "$DEST"
         else
-            wget -q --show-progress "$URL" -O "$DEST"
+            wget -q --show-progress -L "$URL" -O "$DEST"
         fi
     fi
 done
@@ -138,10 +112,7 @@ done
 pkill -f "ComfyUI/main.py" || true
 sleep 1
 
-nohup "$PY" "$COMFY_DIR/main.py" \
---listen 0.0.0.0 \
---port 8188 \
-> /workspace/comfyui.log 2>&1 &
+nohup "$PY" "$COMFY_DIR/main.py" --listen 0.0.0.0 --port 8188 > /workspace/comfyui.log 2>&1 &
 
 echo "================================="
 echo "ComfyUI started"
