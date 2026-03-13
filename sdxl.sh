@@ -73,7 +73,7 @@ wget -nc -L -P vae "https://huggingface.co/stabilityai/sdxl-vae/resolve/main/sdx
 wget -nc -P sams "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth"
 
 # Ultralytics detector
-wget -nc -P ultralytics/bbox "https://huggingface.co/junjiang/GestureFace/resolve/main/yolov8n-face.pt"
+wget -nc -P ultralytics/bbox "https://huggingface.co/datasets/Blankse/SegsmakerAdetailer/resolve/main/Eyeful_v2-Paired.pt"
 
 # ------------------------------------------------
 # LORA DOWNLOAD SECTION
